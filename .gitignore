@@ -1,0 +1,14 @@
+.DS_Store
+__pycache__/
+.pytest_cache/
+.coverage
+.venv/
+node_modules/
+dist/
+
+# Raw OTD / Delhi Transport Stack downloads: terms §7 — commit only derived metro.json (PLAN.md D4)
+backend/data/raw/
+
+# Personal study notes, not part of the submission
+notes/
+frontend/coverage/
