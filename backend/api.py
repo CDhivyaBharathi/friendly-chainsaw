@@ -3,7 +3,6 @@
 Run: `uvicorn api:app` from backend/. If frontend/dist exists it is served at /, so one process serves everything.
 """
 import logging
-from contextlib import asynccontextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -30,16 +29,14 @@ class ApiError(Exception):
 
 
 def create_app(data_path=DEFAULT_PATH, dist=FRONTEND_DIST):
-    @asynccontextmanager
-    async def lifespan(app):
-        try:
-            app.state.net = _network(load(data_path))
-        except DataError as e:
-            log.error("%s", e)       # details go to the log, never to the client (ER1)
-            app.state.net = None
-        yield
-
-    app = FastAPI(title="Delhi Metro Route Planner", lifespan=lifespan)
+    app = FastAPI(title="Delhi Metro Route Planner")
+    # Loaded here, not in a lifespan hook: serverless hosts (Vercel) may skip ASGI startup events,
+    # and the data is read once per process either way.
+    try:
+        app.state.net = _network(load(data_path))
+    except DataError as e:
+        log.error("%s", e)  # details go to the log, never to the client (ER1)
+        app.state.net = None
 
     def net(request):
         if request.app.state.net is None:
