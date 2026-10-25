@@ -7,6 +7,7 @@ const PAD = 40 // svg units of margin around the network in the fit view
 export const FIT_ZOOM = 3 // the default view shows the centre of the network at 3× so every label has room
 export const MIN_ZOOM = 1 / FIT_ZOOM // … and zooming all the way out is exactly the whole network
 export const MAX_ZOOM = 12 // relative to the default view. Labels (station codes) are always drawn.
+export const DRAG_PX = 3 // pointer travel below this still counts as a click
 
 export function createMap(svg, network, { onPick, tooltip, basemap } = {}) {
   const stations = Object.fromEntries(network.stations.map((s) => [s.id, s]))
@@ -126,10 +127,12 @@ export function createMap(svg, network, { onPick, tooltip, basemap } = {}) {
   }, { passive: false })
 
   const pointers = new Map() // pointerId -> [clientX, clientY]; one = drag, two = pinch
+  let downAt = [0, 0]
+  // No setPointerCapture here: with capture, browsers retarget the click to the svg, so station clicks never fire.
   svg.addEventListener('pointerdown', (e) => {
     pointers.set(e.pointerId, [e.clientX, e.clientY])
+    downAt = [e.clientX, e.clientY]
     dragged = false
-    svg.setPointerCapture?.(e.pointerId)
   })
   svg.addEventListener('pointermove', (e) => {
     if (!pointers.has(e.pointerId)) return
@@ -147,7 +150,7 @@ export function createMap(svg, network, { onPick, tooltip, basemap } = {}) {
       zoomBy(Math.hypot(cx - dx, cy - dy) / before || 1, ...toSvg((cx + dx) / 2, (cy + dy) / 2))
     }
     pointers.set(e.pointerId, [e.clientX, e.clientY])
-    if (px !== e.clientX || py !== e.clientY) dragged = true
+    if (Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > DRAG_PX) dragged = true // trackpad jitter is still a click
   })
   for (const type of ['pointerup', 'pointercancel', 'pointerleave']) {
     svg.addEventListener(type, (e) => pointers.delete(e.pointerId))

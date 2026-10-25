@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createMap, edgeKey, renderLegend, MIN_ZOOM, MAX_ZOOM, FIT_ZOOM } from '../src/map.js'
+import { createMap, edgeKey, renderLegend, MIN_ZOOM, MAX_ZOOM, FIT_ZOOM, DRAG_PX } from '../src/map.js'
 import { NETWORK, JOURNEY_1 } from './fixtures.js'
 
 let svg, tooltip, onPick, map
@@ -151,6 +151,33 @@ describe('zoom and pan', () => {
     pointer('pointerup', 10, 10)
     g.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     expect(onPick).toHaveBeenCalledWith(NETWORK.stations[1], expect.any(MouseEvent)) // the event positions the picker card
+  })
+
+  it('BVA: pointer travel up to DRAG_PX is still a click, one more pixel is a drag (trackpad jitter)', () => {
+    const g = svg.querySelector('.station[data-id="b"]')
+    const pointer = (type, x, y) => {
+      const e = new MouseEvent(type, { clientX: x, clientY: y, bubbles: true })
+      Object.defineProperty(e, 'pointerId', { value: 1 })
+      g.dispatchEvent(e)
+    }
+    pointer('pointerdown', 10, 10)
+    pointer('pointermove', 10 + DRAG_PX, 10)
+    pointer('pointerup', 10 + DRAG_PX, 10)
+    g.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(onPick).toHaveBeenCalledTimes(1)
+    pointer('pointerdown', 10, 10)
+    pointer('pointermove', 10 + DRAG_PX + 1, 10)
+    pointer('pointerup', 10 + DRAG_PX + 1, 10)
+    g.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(onPick).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not capture the pointer: with capture the browser retargets the click to the svg and stations never fire', () => {
+    svg.setPointerCapture = vi.fn()
+    const e = new MouseEvent('pointerdown', { clientX: 1, clientY: 1, bubbles: true })
+    Object.defineProperty(e, 'pointerId', { value: 7 })
+    svg.dispatchEvent(e)
+    expect(svg.setPointerCapture).not.toHaveBeenCalled()
   })
 
   it('pinch with two pointers zooms', () => {
